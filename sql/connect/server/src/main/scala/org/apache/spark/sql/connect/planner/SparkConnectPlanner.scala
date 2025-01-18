@@ -775,30 +775,28 @@ class SparkConnectPlanner(
         transformTypedCoGroupMap(rel, commonUdf)
 
       case proto.CommonInlineUserDefinedFunction.FunctionCase.PYTHON_UDF =>
-        val inputCols =
-          rel.getInputGroupingExpressionsList.asScala.toSeq.map(expr =>
-            Column(transformExpression(expr)))
-        val otherCols =
-          rel.getOtherGroupingExpressionsList.asScala.toSeq.map(expr =>
-            Column(transformExpression(expr)))
+        val groupingExpressions =
+          rel.getGroupingExpressionsList.asScala.toSeq.map { exprSet =>
+            exprSet.getExpressionsList.asScala.toSeq.map { expr =>
+              Column(transformExpression(expr))
+            }
+          }
 
-        val input = Dataset
-          .ofRows(session, transformRelation(rel.getInput))
-          .groupBy(inputCols: _*)
-        val other = Dataset
-          .ofRows(session, transformRelation(rel.getOther))
-          .groupBy(otherCols: _*)
+        val input = rel.getRelationsList.asScala.toSeq.zip(groupingExpressions).map {
+          case (relation, groupingExpressions) =>
+            Dataset.ofRows(session, transformRelation(relation)).groupBy(groupingExpressions: _*)
+        }
 
         val pythonUdf = createUserDefinedPythonFunction(commonUdf)
-          .builder(input.df.logicalPlan.output ++ other.df.logicalPlan.output)
+          .builder(input.flatMap(_.df.logicalPlan.output))
           .asInstanceOf[PythonUDF]
 
         pythonUdf.evalType match {
           case PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF =>
-            input.flatMapCoGroupsInPandas(other, Column(pythonUdf)).logicalPlan
+            input.head.flatMapCoGroupsInPandas(Column(pythonUdf), input.tail: _*).logicalPlan
 
           case PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF =>
-            input.flatMapCoGroupsInArrow(other, Column(pythonUdf)).logicalPlan
+            input.head.flatMapCoGroupsInArrow(Column(pythonUdf), input.tail: _*).logicalPlan
 
           case _ =>
             throw InvalidPlanInput(
@@ -815,31 +813,27 @@ class SparkConnectPlanner(
       rel: proto.CoGroupMap,
       commonUdf: proto.CommonInlineUserDefinedFunction): LogicalPlan = {
     val udf = TypedScalaUdf(commonUdf)
-    val left = UntypedKeyValueGroupedDataset(
-      rel.getInput,
-      rel.getInputGroupingExpressionsList,
-      rel.getInputSortingExpressionsList)
-    val right = UntypedKeyValueGroupedDataset(
-      rel.getOther,
-      rel.getOtherGroupingExpressionsList,
-      rel.getOtherSortingExpressionsList)
+    val datasets = rel.getRelationsList.asScala.toSeq
+      .zip(rel.getGroupingExpressionsList.asScala.toSeq)
+      .zip(rel.getSortingExpressionsList.asScala.toSeq)
+      .map { case ((relation, groupingExpressions), sortingExpressions) =>
+        UntypedKeyValueGroupedDataset(
+          relation,
+          groupingExpressions.getExpressionsList,
+          sortingExpressions.getExpressionsList)
+      }
 
     val mapped = CoGroup(
-      udf.function.asInstanceOf[(Any, Iterator[Any], Iterator[Any]) => IterableOnce[Any]],
-      // The `leftGroup` and `rightGroup` are guaranteed te be of same schema, so it's safe to
-      // resolve the `keyDeserializer` based on either of them, here we pick the left one.
-      udf.inputDeserializer(left.groupingAttributes),
-      left.valueDeserializer,
-      right.valueDeserializer,
-      left.groupingAttributes,
-      right.groupingAttributes,
-      left.dataAttributes,
-      right.dataAttributes,
-      left.sortOrder,
-      right.sortOrder,
+      udf.function.asInstanceOf[(Any, Seq[Iterator[Any]]) => IterableOnce[Any]],
+      // The `groupingAttributes` are guaranteed te be of same schema, so it's safe to resolve the
+      // `keyDeserializer` based on either of them, here we pick the head one.
+      udf.inputDeserializer(datasets.head.groupingAttributes),
+      datasets.map(_.valueDeserializer),
+      datasets.map(_.groupingAttributes),
+      datasets.map(_.dataAttributes),
+      datasets.map(_.sortOrder),
       udf.outputObjAttr,
-      left.analyzed,
-      right.analyzed)
+      datasets.map(_.analyzed))
     SerializeFromObject(udf.outputNamedExpression, mapped)
   }
 

@@ -17,6 +17,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.api.java.function._
+import org.apache.spark.sql.{Column, Encoder, TypedColumn}
 import org.apache.spark.sql.catalyst.encoders.AgnosticEncoders.PrimitiveLongEncoder
 import org.apache.spark.sql.functions.{count => cnt, lit}
 import org.apache.spark.sql.internal.{ToScalaUDF, UDFAdaptors}
@@ -977,6 +978,87 @@ abstract class KeyValueGroupedDataset[K, V] extends Serializable {
   }
 
   /**
+   * (Java-specific) Applies the given function to each cogrouped data. For each unique group, the
+   * function will be passed the grouping key and 2 iterators containing all elements in the group
+   * from [[Dataset]] `this` and `other`. The function can return an iterator containing elements
+   * of an arbitrary type which will be returned as a new [[Dataset]].
+   *
+   * @since 4.0.0
+   */
+  def cogroup[U, R](
+      other: KeyValueGroupedDataset[K, U],
+      f: CoGroupFunction2[K, V, U, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    cogroup(other)(ToScalaUDF(f))(encoder)
+  }
+
+  /**
+   * (Scala-specific) Applies the given function to each cogrouped data. For each unique group,
+   * the function will be passed the grouping key and 3 iterators containing all elements in the
+   * group from [[Dataset]] `this`, `other1`, and `other2`. The function can return an iterator
+   * containing elements of an arbitrary type which will be returned as a new [[Dataset]].
+   *
+   * @since 4.0.0
+   */
+  def cogroup[U1, U2, R: Encoder](other1: KeyValueGroupedDataset[K, U1],
+                                  other2: KeyValueGroupedDataset[K, U2])(
+      f: (K, Iterator[V], Iterator[U1], Iterator[U2]) => IterableOnce[R]): Dataset[R] = {
+    cogroupSorted(other1, other2)(Nil: _*)(Nil: _*)(Nil: _*)(f)
+  }
+
+  /**
+   * (Java-specific) Applies the given function to each cogrouped data. For each unique group, the
+   * function will be passed the grouping key and 3 iterators containing all elements in the group
+   * from [[Dataset]] `this`, `other1`, and `other2`. The function can return an iterator
+   * containing elements of an arbitrary type which will be returned as a new [[Dataset]].
+   *
+   * @since 4.0.0
+   */
+  def cogroup[U1, U2, R](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      f: CoGroupFunction3[K, V, U1, U2, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    cogroup(other1, other2)(ToScalaUDF(f))(encoder)
+  }
+
+  /**
+   * (Scala-specific) Applies the given function to each cogrouped data. For each unique group,
+   * the function will be passed the grouping key and 4 iterators containing all elements in the
+   * group from [[Dataset]] `this`, `other1`, `other2`, and `other3`. The function can return an
+   * iterator containing elements of an arbitrary type which will be returned as a new
+   * [[Dataset]].
+   *
+   * @since 4.0.0
+   */
+  def cogroup[U1, U2, U3, R: Encoder](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      other3: KeyValueGroupedDataset[K, U3])(
+      f: (K, Iterator[V], Iterator[U1], Iterator[U2], Iterator[U3]) => IterableOnce[R])
+      : Dataset[R] = {
+    cogroupSorted(other1, other2, other3)(Nil: _*)(Nil: _*)(Nil: _*)(Nil: _*)(f)
+  }
+
+  /**
+   * (Java-specific) Applies the given function to each cogrouped data. For each unique group, the
+   * function will be passed the grouping key and 4 iterators containing all elements in the group
+   * from [[Dataset]] `this`, `other1`, `other2`, and `other3`. The function can return an
+   * iterator containing elements of an arbitrary type which will be returned as a new
+   * [[Dataset]].
+   *
+   * @since 4.0.0
+   */
+  def cogroup[U1, U2, U3, R](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      other3: KeyValueGroupedDataset[K, U3],
+      f: CoGroupFunction4[K, V, U1, U2, U3, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    cogroup(other1, other2, other3)(ToScalaUDF(f))(encoder)
+  }
+
+  /**
    * (Scala-specific) Applies the given function to each sorted cogrouped data. For each unique
    * group, the function will be passed the grouping key and 2 sorted iterators containing all
    * elements in the group from [[Dataset]] `this` and `other`. The function can return an
@@ -1018,5 +1100,134 @@ abstract class KeyValueGroupedDataset[K, V] extends Serializable {
     import org.apache.spark.util.ArrayImplicits._
     cogroupSorted(other)(thisSortExprs.toImmutableArraySeq: _*)(
       otherSortExprs.toImmutableArraySeq: _*)(ToScalaUDF(f))(encoder)
+  }
+
+  /**
+   * (Java-specific) Applies the given function to each sorted cogrouped data. For each unique
+   * group, the function will be passed the grouping key and 2 sorted iterators containing all
+   * elements in the group from [[Dataset]] `this` and `other`. The function can return an
+   * iterator containing elements of an arbitrary type which will be returned as a new
+   * [[Dataset]].
+   *
+   * This is equivalent to [[KeyValueGroupedDataset#cogroup]], except for the iterators to be
+   * sorted according to the given sort expressions. That sorting does not add computational
+   * complexity.
+   *
+   * @see
+   *   `org.apache.spark.sql.api.KeyValueGroupedDataset#cogroup`
+   * @since 4.0.0
+   */
+  def cogroupSorted[U, R](
+      other: KeyValueGroupedDataset[K, U],
+      thisSortExprs: Array[Column],
+      otherSortExprs: Array[Column],
+      f: CoGroupFunction2[K, V, U, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    import org.apache.spark.util.ArrayImplicits._
+    cogroupSorted(other)(thisSortExprs.toImmutableArraySeq: _*)(
+      otherSortExprs.toImmutableArraySeq: _*)(ToScalaUDF(f))(encoder)
+  }
+
+  /**
+   * (Scala-specific) Applies the given function to each sorted cogrouped data. For each unique
+   * group, the function will be passed the grouping key and 3 sorted iterators containing all
+   * elements in the group from [[Dataset]] `this`, `other1`, and `other2`. The function can
+   * return an iterator containing elements of an arbitrary type which will be returned as a new
+   * [[Dataset]].
+   *
+   * This is equivalent to [[KeyValueGroupedDataset#cogroup]], except for the iterators to be
+   * sorted according to the given sort expressions. That sorting does not add computational
+   * complexity.
+   *
+   * @see
+   *   `org.apache.spark.sql.api.KeyValueGroupedDataset#cogroup`
+   * @since 4.0.0
+   */
+  def cogroupSorted[U1, U2, R: Encoder](other1: KeyValueGroupedDataset[K, U1],
+                                        other2: KeyValueGroupedDataset[K, U2])(
+      thisSortExprs: Column*)(other1SortExprs: Column*)(other2SortExprs: Column*)(
+      f: (K, Iterator[V], Iterator[U1], Iterator[U2]) => IterableOnce[R]): Dataset[R]
+
+  /**
+   * (Java-specific) Applies the given function to each sorted cogrouped data. For each unique
+   * group, the function will be passed the grouping key and 3 sorted iterators containing all
+   * elements in the group from [[Dataset]] `this`, `other1`, and `other2`. The function can
+   * return an iterator containing elements of an arbitrary type which will be returned as a new
+   * [[Dataset]].
+   *
+   * This is equivalent to [[KeyValueGroupedDataset#cogroup]], except for the iterators to be
+   * sorted according to the given sort expressions. That sorting does not add computational
+   * complexity.
+   *
+   * @see
+   *   `org.apache.spark.sql.api.KeyValueGroupedDataset#cogroup`
+   * @since 4.0.0
+   */
+  def cogroupSorted[U1, U2, R](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      thisSortExprs: Array[Column],
+      other1SortExprs: Array[Column],
+      other2SortExprs: Array[Column],
+      f: CoGroupFunction3[K, V, U1, U2, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    import org.apache.spark.util.ArrayImplicits._
+    cogroupSorted(other1, other2)(thisSortExprs.toImmutableArraySeq: _*)(
+      other1SortExprs.toImmutableArraySeq: _*)(other2SortExprs.toImmutableArraySeq: _*)(
+      ToScalaUDF(f))(encoder)
+  }
+
+  /**
+   * (Scala-specific) Applies the given function to each sorted cogrouped data. For each unique
+   * group, the function will be passed the grouping key and 4 sorted iterators containing all
+   * elements in the group from [[Dataset]] `this`, `other1`, `other2`, and `other3`. The function
+   * can return an iterator containing elements of an arbitrary type which will be returned as a
+   * new [[Dataset]].
+   *
+   * This is equivalent to [[KeyValueGroupedDataset#cogroup]], except for the iterators to be
+   * sorted according to the given sort expressions. That sorting does not add computational
+   * complexity.
+   *
+   * @see
+   *   `org.apache.spark.sql.api.KeyValueGroupedDataset#cogroup`
+   * @since 4.0.0
+   */
+  def cogroupSorted[U1, U2, U3, R: Encoder](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      other3: KeyValueGroupedDataset[K, U3])(thisSortExprs: Column*)(other1SortExprs: Column*)(
+      other2SortExprs: Column*)(other3SortExprs: Column*)(
+      f: (K, Iterator[V], Iterator[U1], Iterator[U2], Iterator[U3]) => IterableOnce[R])
+      : Dataset[R]
+
+  /**
+   * (Java-specific) Applies the given function to each sorted cogrouped data. For each unique
+   * group, the function will be passed the grouping key and 4 sorted iterators containing all
+   * elements in the group from [[Dataset]] `this`, `other1`, `other2`, and `other3`. The function
+   * can return an iterator containing elements of an arbitrary type which will be returned as a
+   * new [[Dataset]].
+   *
+   * This is equivalent to [[KeyValueGroupedDataset#cogroup]], except for the iterators to be
+   * sorted according to the given sort expressions. That sorting does not add computational
+   * complexity.
+   *
+   * @see
+   *   `org.apache.spark.sql.api.KeyValueGroupedDataset#cogroup`
+   * @since 4.0.0
+   */
+  def cogroupSorted[U1, U2, U3, R](
+      other1: KeyValueGroupedDataset[K, U1],
+      other2: KeyValueGroupedDataset[K, U2],
+      other3: KeyValueGroupedDataset[K, U3],
+      thisSortExprs: Array[Column],
+      other1SortExprs: Array[Column],
+      other2SortExprs: Array[Column],
+      other3SortExprs: Array[Column],
+      f: CoGroupFunction4[K, V, U1, U2, U3, R],
+      encoder: Encoder[R]): Dataset[R] = {
+    import org.apache.spark.util.ArrayImplicits._
+    cogroupSorted(other1, other2, other3)(thisSortExprs.toImmutableArraySeq: _*)(
+      other1SortExprs.toImmutableArraySeq: _*)(other2SortExprs.toImmutableArraySeq: _*)(
+      other3SortExprs.toImmutableArraySeq: _*)(ToScalaUDF(f))(encoder)
   }
 }

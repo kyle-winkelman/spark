@@ -25,21 +25,21 @@ import org.apache.spark.sql.streaming.{GroupStateTimeout, OutputMode, TimeMode}
 import org.apache.spark.sql.types.StructType
 
 /**
- * FlatMap groups using a udf: pandas.Dataframe -> pandas.DataFrame.
- * This is used by DataFrame.groupby().apply().
+ * FlatMap groups using a udf: pandas.Dataframe -> pandas.DataFrame. This is used by
+ * DataFrame.groupby().apply().
  */
 case class FlatMapGroupsInPandas(
     groupingAttributes: Seq[Attribute],
     functionExpr: Expression,
     output: Seq[Attribute],
-    child: LogicalPlan) extends UnaryNode {
+    child: LogicalPlan)
+    extends UnaryNode {
 
   /**
-   * This is needed because output attributes are considered `references` when
-   * passed through the constructor.
+   * This is needed because output attributes are considered `references` when passed through the
+   * constructor.
    *
-   * Without this, catalyst will complain that output attributes are missing
-   * from the input.
+   * Without this, catalyst will complain that output attributes are missing from the input.
    */
   override val producedAttributes = AttributeSet(output)
 
@@ -48,21 +48,21 @@ case class FlatMapGroupsInPandas(
 }
 
 /**
- * FlatMap groups using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch).
- * This is used by DataFrame.groupby().applyInArrow().
+ * FlatMap groups using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch). This is
+ * used by DataFrame.groupby().applyInArrow().
  */
 case class FlatMapGroupsInArrow(
     groupingAttributes: Seq[Attribute],
     functionExpr: Expression,
     output: Seq[Attribute],
-    child: LogicalPlan) extends UnaryNode {
+    child: LogicalPlan)
+    extends UnaryNode {
 
   /**
-   * This is needed because output attributes are considered `references` when
-   * passed through the constructor.
+   * This is needed because output attributes are considered `references` when passed through the
+   * constructor.
    *
-   * Without this, catalyst will complain that output attributes are missing
-   * from the input.
+   * Without this, catalyst will complain that output attributes are missing from the input.
    */
   override val producedAttributes = AttributeSet(output)
 
@@ -71,15 +71,16 @@ case class FlatMapGroupsInArrow(
 }
 
 /**
- * Map partitions using a udf: iter(pandas.Dataframe) -> iter(pandas.DataFrame).
- * This is used by DataFrame.mapInPandas()
+ * Map partitions using a udf: iter(pandas.Dataframe) -> iter(pandas.DataFrame). This is used by
+ * DataFrame.mapInPandas()
  */
 case class MapInPandas(
     functionExpr: Expression,
     output: Seq[Attribute],
     child: LogicalPlan,
     isBarrier: Boolean,
-    profile: Option[ResourceProfile]) extends UnaryNode {
+    profile: Option[ResourceProfile])
+    extends UnaryNode {
 
   override val producedAttributes = AttributeSet(output)
 
@@ -88,15 +89,16 @@ case class MapInPandas(
 }
 
 /**
- * Map partitions using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch).
- * This is used by DataFrame.mapInArrow() in PySpark
+ * Map partitions using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch). This is
+ * used by DataFrame.mapInArrow() in PySpark
  */
 case class MapInArrow(
     functionExpr: Expression,
     output: Seq[Attribute],
     child: LogicalPlan,
     isBarrier: Boolean,
-    profile: Option[ResourceProfile]) extends UnaryNode {
+    profile: Option[ResourceProfile])
+    extends UnaryNode {
 
   override val producedAttributes = AttributeSet(output)
 
@@ -105,44 +107,48 @@ case class MapInArrow(
 }
 
 /**
- * Flatmap cogroups using a udf: pandas.Dataframe, pandas.Dataframe -> pandas.Dataframe
- * This is used by DataFrame.groupby().cogroup().apply().
+ * Flatmap cogroups using a udf: pandas.Dataframe, pandas.Dataframe -> pandas.Dataframe This is
+ * used by DataFrame.groupby().cogroup().apply().
  */
 case class FlatMapCoGroupsInPandas(
-    leftGroupingLen: Int,
-    rightGroupingLen: Int,
+    groupingLens: Seq[Int],
     functionExpr: Expression,
     output: Seq[Attribute],
-    left: LogicalPlan,
-    right: LogicalPlan) extends BinaryNode {
+    children: Seq[LogicalPlan])
+    extends LogicalPlan {
 
   override val producedAttributes = AttributeSet(output)
   override lazy val references: AttributeSet =
-    AttributeSet(leftAttributes ++ rightAttributes ++ functionExpr.references) -- producedAttributes
+    AttributeSet(groups.flatMap(_.iterator) ++ functionExpr.references) -- producedAttributes
 
-  def leftAttributes: Seq[Attribute] = left.output.take(leftGroupingLen)
-
-  def rightAttributes: Seq[Attribute] = right.output.take(rightGroupingLen)
+  def groups: Seq[Seq[Attribute]] = children.zip(groupingLens).map { case (child, groupingLen) =>
+    child.output.take(groupingLen)
+  }
 
   override protected def withNewChildrenInternal(
-      newLeft: LogicalPlan, newRight: LogicalPlan): FlatMapCoGroupsInPandas =
-    copy(left = newLeft, right = newRight)
+      newChildren: IndexedSeq[LogicalPlan]): FlatMapCoGroupsInPandas =
+    copy(children = newChildren)
 }
 
 /**
- * Similar with [[FlatMapGroupsWithState]]. Applies func to each unique group
- * in `child`, based on the evaluation of `groupingAttributes`,
- * while using state data.
- * `functionExpr` is invoked with an pandas DataFrame representation and the
- * grouping key (tuple).
+ * Similar with [[FlatMapGroupsWithState]]. Applies func to each unique group in `child`, based on
+ * the evaluation of `groupingAttributes`, while using state data. `functionExpr` is invoked with
+ * an pandas DataFrame representation and the grouping key (tuple).
  *
- * @param functionExpr function called on each group
- * @param groupingAttributes used to group the data
- * @param outputAttrs used to define the output rows
- * @param stateType used to serialize/deserialize state before calling `functionExpr`
- * @param outputMode the output mode of `func`
- * @param timeout used to timeout groups that have not received data in a while
- * @param child logical plan of the underlying data
+ * @param functionExpr
+ *   function called on each group
+ * @param groupingAttributes
+ *   used to group the data
+ * @param outputAttrs
+ *   used to define the output rows
+ * @param stateType
+ *   used to serialize/deserialize state before calling `functionExpr`
+ * @param outputMode
+ *   the output mode of `func`
+ * @param timeout
+ *   used to timeout groups that have not received data in a while
+ * @param child
+ *   logical plan of the underlying data
  */
 case class FlatMapGroupsInPandasWithState(
     functionExpr: Expression,
@@ -151,36 +157,45 @@ case class FlatMapGroupsInPandasWithState(
     stateType: StructType,
     outputMode: OutputMode,
     timeout: GroupStateTimeout,
-    child: LogicalPlan) extends UnaryNode {
+    child: LogicalPlan)
+    extends UnaryNode {
 
   override def output: Seq[Attribute] = outputAttrs
 
   override def producedAttributes: AttributeSet = AttributeSet(outputAttrs)
 
   override protected def withNewChildInternal(
-    newChild: LogicalPlan): FlatMapGroupsInPandasWithState = copy(child = newChild)
+      newChild: LogicalPlan): FlatMapGroupsInPandasWithState = copy(child = newChild)
 }
 
 /**
  * Invokes methods defined in the stateful processor used in arbitrary state API v2. We allow the
  * user to act on per-group set of input rows along with keyed state and the user can choose to
- * output/return 0 or more rows. For a streaming dataframe, we will repeatedly invoke the interface
- * methods for new rows in each trigger and the user's state/state variables will be stored
- * persistently across invocations.
+ * output/return 0 or more rows. For a streaming dataframe, we will repeatedly invoke the
+ * interface methods for new rows in each trigger and the user's state/state variables will be
+ * stored persistently across invocations.
  *
- * Note that before invoking the function, please project the grouping attributes of input dataframe
- * and initial state dataframe to the front of the output attributes. The attributes are not fully
- * resolved when this function is invoked. Will return left and right attributes by taking the first
- * `groupingAttributesLen` and `initGroupingAttrsLen` after attributes are resolved.
- * The dedup of grouping attributes will happen in the physical operator.
- * @param functionExpr function called on each group
- * @param groupingAttributesLen length of the seq of grouping attributes for input dataframe.
- * @param outputAttrs used to define the output rows
- * @param outputMode defines the output mode for the statefulProcessor
- * @param timeMode the time mode semantics of the stateful processor for timers and TTL.
- * @param child logical plan of the underlying data
- * @param initialState logical plan of initial state
- * @param initGroupingAttrsLen length of the seq of grouping attributes for initial state dataframe
+ * Note that before invoking the function, please project the grouping attributes of input
+ * dataframe and initial state dataframe to the front of the output attributes. The attributes are
+ * not fully resolved when this function is invoked. Will return left and right attributes by
+ * taking the first `groupingAttributesLen` and `initGroupingAttrsLen` after attributes are
+ * resolved. The dedup of grouping attributes will happen in the physical operator.
+ * @param functionExpr
+ *   function called on each group
+ * @param groupingAttributesLen
+ *   length of the seq of grouping attributes for input dataframe.
+ * @param outputAttrs
+ *   used to define the output rows
+ * @param outputMode
+ *   defines the output mode for the statefulProcessor
+ * @param timeMode
+ *   the time mode semantics of the stateful processor for timers and TTL.
+ * @param child
+ *   logical plan of the underlying data
+ * @param initialState
+ *   logical plan of initial state
+ * @param initGroupingAttrsLen
+ *   length of the seq of grouping attributes for initial state dataframe
  */
 case class TransformWithStateInPandas(
     functionExpr: Expression,
@@ -192,7 +207,8 @@ case class TransformWithStateInPandas(
     hasInitialState: Boolean,
     initialState: LogicalPlan,
     initGroupingAttrsLen: Int,
-    initialStateSchema: StructType) extends BinaryNode {
+    initialStateSchema: StructType)
+    extends BinaryNode {
   override def left: LogicalPlan = child
 
   override def right: LogicalPlan = initialState
@@ -202,10 +218,12 @@ case class TransformWithStateInPandas(
   override def producedAttributes: AttributeSet = AttributeSet(outputAttrs)
 
   override lazy val references: AttributeSet =
-    AttributeSet(leftAttributes ++ rightAttributes ++ functionExpr.references) -- producedAttributes
+    AttributeSet(
+      leftAttributes ++ rightAttributes ++ functionExpr.references) -- producedAttributes
 
   override protected def withNewChildrenInternal(
-      newLeft: LogicalPlan, newRight: LogicalPlan): TransformWithStateInPandas =
+      newLeft: LogicalPlan,
+      newRight: LogicalPlan): TransformWithStateInPandas =
     copy(child = newLeft, initialState = newRight)
 
   def leftAttributes: Seq[Attribute] = {
@@ -226,28 +244,27 @@ case class TransformWithStateInPandas(
 }
 
 /**
- * Flatmap cogroups using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch)
- * This is used by DataFrame.groupby().cogroup().applyInArrow().
+ * Flatmap cogroups using a udf: iter(pyarrow.RecordBatch) -> iter(pyarrow.RecordBatch) This is
+ * used by DataFrame.groupby().cogroup().applyInArrow().
  */
 case class FlatMapCoGroupsInArrow(
-    leftGroupingLen: Int,
-    rightGroupingLen: Int,
+    groupingLens: Seq[Int],
     functionExpr: Expression,
     output: Seq[Attribute],
-    left: LogicalPlan,
-    right: LogicalPlan) extends BinaryNode {
+    children: Seq[LogicalPlan])
+    extends LogicalPlan {
 
   override val producedAttributes = AttributeSet(output)
   override lazy val references: AttributeSet =
-    AttributeSet(leftAttributes ++ rightAttributes ++ functionExpr.references) -- producedAttributes
+    AttributeSet(groups.flatMap(_.iterator) ++ functionExpr.references) -- producedAttributes
 
-  def leftAttributes: Seq[Attribute] = left.output.take(leftGroupingLen)
-
-  def rightAttributes: Seq[Attribute] = right.output.take(rightGroupingLen)
+  def groups: Seq[Seq[Attribute]] = children.zip(groupingLens).map { case (child, groupingLen) =>
+    child.output.take(groupingLen)
+  }
 
   override protected def withNewChildrenInternal(
-      newLeft: LogicalPlan, newRight: LogicalPlan): FlatMapCoGroupsInArrow =
-    copy(left = newLeft, right = newRight)
+      newChildren: IndexedSeq[LogicalPlan]): FlatMapCoGroupsInArrow =
+    copy(children = newChildren)
 }
 
 trait BaseEvalPython extends UnaryNode {
@@ -281,10 +298,8 @@ trait BaseEvalPythonUDTF extends UnaryNode {
 /**
  * A logical plan that evaluates a [[PythonUDF]]
  */
-case class BatchEvalPython(
-    udfs: Seq[PythonUDF],
-    resultAttrs: Seq[Attribute],
-    child: LogicalPlan) extends BaseEvalPython {
+case class BatchEvalPython(udfs: Seq[PythonUDF], resultAttrs: Seq[Attribute], child: LogicalPlan)
+    extends BaseEvalPython {
   override protected def withNewChildInternal(newChild: LogicalPlan): BatchEvalPython =
     copy(child = newChild)
 }
@@ -296,7 +311,8 @@ case class ArrowEvalPython(
     udfs: Seq[PythonUDF],
     resultAttrs: Seq[Attribute],
     child: LogicalPlan,
-    evalType: Int) extends BaseEvalPython {
+    evalType: Int)
+    extends BaseEvalPython {
   override protected def withNewChildInternal(newChild: LogicalPlan): ArrowEvalPython =
     copy(child = newChild)
 }
@@ -304,17 +320,22 @@ case class ArrowEvalPython(
 /**
  * A logical plan that evaluates a [[PythonUDTF]].
  *
- * @param udtf the user-defined Python function
- * @param requiredChildOutput the required output of the child plan. It's used for omitting data
- *                            generation that will be discarded next by a projection.
- * @param resultAttrs the output schema of the Python UDTF.
- * @param child the child plan
+ * @param udtf
+ *   the user-defined Python function
+ * @param requiredChildOutput
+ *   the required output of the child plan. It's used for omitting data generation that will be
+ *   discarded next by a projection.
+ * @param resultAttrs
+ *   the output schema of the Python UDTF.
+ * @param child
+ *   the child plan
  */
 case class BatchEvalPythonUDTF(
     udtf: PythonUDTF,
     requiredChildOutput: Seq[Attribute],
     resultAttrs: Seq[Attribute],
-    child: LogicalPlan) extends BaseEvalPythonUDTF {
+    child: LogicalPlan)
+    extends BaseEvalPythonUDTF {
   override protected def withNewChildInternal(newChild: LogicalPlan): BatchEvalPythonUDTF =
     copy(child = newChild)
 }
@@ -322,30 +343,33 @@ case class BatchEvalPythonUDTF(
 /**
  * A logical plan that evaluates a [[PythonUDTF]] using Apache Arrow.
  *
- * @param udtf the user-defined Python function
- * @param requiredChildOutput the required output of the child plan. It's used for omitting data
- *                            generation that will be discarded next by a projection.
- * @param resultAttrs the output schema of the Python UDTF.
- * @param child the child plan
+ * @param udtf
+ *   the user-defined Python function
+ * @param requiredChildOutput
+ *   the required output of the child plan. It's used for omitting data generation that will be
+ *   discarded next by a projection.
+ * @param resultAttrs
+ *   the output schema of the Python UDTF.
+ * @param child
+ *   the child plan
  */
 case class ArrowEvalPythonUDTF(
     udtf: PythonUDTF,
     requiredChildOutput: Seq[Attribute],
     resultAttrs: Seq[Attribute],
     child: LogicalPlan,
-    evalType: Int) extends BaseEvalPythonUDTF {
+    evalType: Int)
+    extends BaseEvalPythonUDTF {
   override protected def withNewChildInternal(newChild: LogicalPlan): ArrowEvalPythonUDTF =
     copy(child = newChild)
 }
 
 /**
- * A logical plan that adds a new long column with the name `name` that
- * increases one by one. This is for 'distributed-sequence' default index
- * in pandas API on Spark.
+ * A logical plan that adds a new long column with the name `name` that increases one by one. This
+ * is for 'distributed-sequence' default index in pandas API on Spark.
  */
-case class AttachDistributedSequence(
-    sequenceAttr: Attribute,
-    child: LogicalPlan) extends UnaryNode {
+case class AttachDistributedSequence(sequenceAttr: Attribute, child: LogicalPlan)
+    extends UnaryNode {
 
   override val producedAttributes: AttributeSet = AttributeSet(sequenceAttr)
 

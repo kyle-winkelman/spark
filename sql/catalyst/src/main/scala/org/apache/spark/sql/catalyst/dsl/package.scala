@@ -36,7 +36,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 /**
- * A collection of implicit conversions that create a DSL for constructing catalyst data structures.
+ * A collection of implicit conversions that create a DSL for constructing catalyst data
+ * structures.
  *
  * {{{
  *  scala> import org.apache.spark.sql.catalyst.dsl.expressions._
@@ -73,29 +74,30 @@ package object dsl {
     def unary_! : Predicate = Not(expr)
     def unary_~ : Expression = BitwiseNot(expr)
 
-    def + (other: Expression): Expression = Add(expr, other)
-    def - (other: Expression): Expression = Subtract(expr, other)
-    def * (other: Expression): Expression = Multiply(expr, other)
-    def / (other: Expression): Expression = Divide(expr, other)
-    def div (other: Expression): Expression = IntegralDivide(expr, other)
-    def % (other: Expression): Expression = Remainder(expr, other)
-    def & (other: Expression): Expression = BitwiseAnd(expr, other)
-    def | (other: Expression): Expression = BitwiseOr(expr, other)
-    def ^ (other: Expression): Expression = BitwiseXor(expr, other)
+    def +(other: Expression): Expression = Add(expr, other)
+    def -(other: Expression): Expression = Subtract(expr, other)
+    def *(other: Expression): Expression = Multiply(expr, other)
+    def /(other: Expression): Expression = Divide(expr, other)
+    def div(other: Expression): Expression = IntegralDivide(expr, other)
+    def %(other: Expression): Expression = Remainder(expr, other)
+    def &(other: Expression): Expression = BitwiseAnd(expr, other)
+    def |(other: Expression): Expression = BitwiseOr(expr, other)
+    def ^(other: Expression): Expression = BitwiseXor(expr, other)
 
-    def && (other: Expression): Predicate = And(expr, other)
-    def || (other: Expression): Predicate = Or(expr, other)
+    def &&(other: Expression): Predicate = And(expr, other)
+    def ||(other: Expression): Predicate = Or(expr, other)
 
-    def < (other: Expression): Predicate = LessThan(expr, other)
-    def <= (other: Expression): Predicate = LessThanOrEqual(expr, other)
-    def > (other: Expression): Predicate = GreaterThan(expr, other)
-    def >= (other: Expression): Predicate = GreaterThanOrEqual(expr, other)
-    def === (other: Expression): Predicate = EqualTo(expr, other)
-    def <=> (other: Expression): Predicate = EqualNullSafe(expr, other)
-    def =!= (other: Expression): Predicate = Not(EqualTo(expr, other))
+    def <(other: Expression): Predicate = LessThan(expr, other)
+    def <=(other: Expression): Predicate = LessThanOrEqual(expr, other)
+    def >(other: Expression): Predicate = GreaterThan(expr, other)
+    def >=(other: Expression): Predicate = GreaterThanOrEqual(expr, other)
+    def ===(other: Expression): Predicate = EqualTo(expr, other)
+    def <=>(other: Expression): Predicate = EqualNullSafe(expr, other)
+    def =!=(other: Expression): Predicate = Not(EqualTo(expr, other))
 
     def in(list: Expression*): Predicate = list match {
-      case Seq(l: ListQuery) => expr match {
+      case Seq(l: ListQuery) =>
+        expr match {
           case c: CreateNamedStruct => InSubquery(c.valExprs, l)
           case other => InSubquery(Seq(other), l)
         }
@@ -126,7 +128,8 @@ package object dsl {
     def isNull: Predicate = IsNull(expr)
     def isNotNull: Predicate = IsNotNull(expr)
 
-    def getItem(ordinal: Expression): UnresolvedExtractValue = UnresolvedExtractValue(expr, ordinal)
+    def getItem(ordinal: Expression): UnresolvedExtractValue =
+      UnresolvedExtractValue(expr, ordinal)
     def getField(fieldName: String): UnresolvedExtractValue =
       UnresolvedExtractValue(expr, Literal(fieldName))
 
@@ -188,7 +191,7 @@ package object dsl {
       // Note that if we make ExpressionConversions an object rather than a trait, we can
       // then make this a value class to avoid the small penalty of runtime instantiation.
       def $(args: Any*): analysis.UnresolvedAttribute = {
-        analysis.UnresolvedAttribute(sc.s(args : _*))
+        analysis.UnresolvedAttribute(sc.s(args: _*))
       }
     }
 
@@ -374,9 +377,9 @@ package object dsl {
     }
   }
 
-  object expressions extends ExpressionConversions  // scalastyle:ignore
+  object expressions extends ExpressionConversions // scalastyle:ignore
 
-  object plans {  // scalastyle:ignore
+  object plans { // scalastyle:ignore
     def table(parts: String*): LogicalPlan = UnresolvedRelation(parts)
 
     implicit class DslLogicalPlan(val logicalPlan: LogicalPlan) {
@@ -390,13 +393,14 @@ package object dsl {
 
       def where(condition: Expression): LogicalPlan = Filter(condition, logicalPlan)
 
-      def filter[T : Encoder](func: T => Boolean): LogicalPlan = TypedFilter(func, logicalPlan)
+      def filter[T: Encoder](func: T => Boolean): LogicalPlan = TypedFilter(func, logicalPlan)
 
-      def filter[T : Encoder](func: FilterFunction[T]): LogicalPlan = TypedFilter(func, logicalPlan)
+      def filter[T: Encoder](func: FilterFunction[T]): LogicalPlan =
+        TypedFilter(func, logicalPlan)
 
-      def serialize[T : Encoder]: LogicalPlan = CatalystSerde.serialize[T](logicalPlan)
+      def serialize[T: Encoder]: LogicalPlan = CatalystSerde.serialize[T](logicalPlan)
 
-      def deserialize[T : Encoder]: LogicalPlan = CatalystSerde.deserialize[T](logicalPlan)
+      def deserialize[T: Encoder]: LogicalPlan = CatalystSerde.deserialize[T](logicalPlan)
 
       def limit(limitExpr: Expression): LogicalPlan = Limit(limitExpr, logicalPlan)
 
@@ -405,9 +409,9 @@ package object dsl {
       def offset(offsetExpr: Expression): LogicalPlan = Offset(offsetExpr, logicalPlan)
 
       def join(
-        otherPlan: LogicalPlan,
-        joinType: JoinType = Inner,
-        condition: Option[Expression] = None): LogicalPlan =
+          otherPlan: LogicalPlan,
+          joinType: JoinType = Inner,
+          condition: Option[Expression] = None): LogicalPlan =
         Join(logicalPlan, otherPlan, joinType, condition, JoinHint.NONE)
 
       def lateralJoin(
@@ -425,18 +429,13 @@ package object dsl {
           leftAttr: Seq[Attribute],
           rightAttr: Seq[Attribute],
           leftOrder: Seq[SortOrder] = Nil,
-          rightOrder: Seq[SortOrder] = Nil
-        ): LogicalPlan = {
+          rightOrder: Seq[SortOrder] = Nil): LogicalPlan = {
         CoGroup.apply[Key, Left, Right, Result](
           func,
-          leftGroup,
-          rightGroup,
-          leftAttr,
-          rightAttr,
-          leftOrder,
-          rightOrder,
-          logicalPlan,
-          otherPlan)
+          Seq(leftGroup, rightGroup),
+          Seq(leftAttr, rightAttr),
+          Seq(leftOrder, rightOrder),
+          Seq(logicalPlan, otherPlan))
       }
 
       def orderBy(sortExprs: SortOrder*): LogicalPlan = Sort(sortExprs, true, logicalPlan)
@@ -451,11 +450,10 @@ package object dsl {
         Aggregate(groupingExprs, aliasedExprs, logicalPlan)
       }
 
-      def having(
-          groupingExprs: Expression*)(
-          aggregateExprs: Expression*)(
+      def having(groupingExprs: Expression*)(aggregateExprs: Expression*)(
           havingCondition: Expression): LogicalPlan = {
-        UnresolvedHaving(havingCondition,
+        UnresolvedHaving(
+          havingCondition,
           groupBy(groupingExprs: _*)(aggregateExprs: _*).asInstanceOf[Aggregate])
       }
 
@@ -484,13 +482,18 @@ package object dsl {
       def union(otherPlan: LogicalPlan): LogicalPlan = Union(logicalPlan, otherPlan)
 
       def generate(
-        generator: Generator,
-        unrequiredChildIndex: Seq[Int] = Nil,
-        outer: Boolean = false,
-        alias: Option[String] = None,
-        outputNames: Seq[String] = Nil): LogicalPlan =
-        Generate(generator, unrequiredChildIndex, outer,
-          alias, outputNames.map(UnresolvedAttribute(_)), logicalPlan)
+          generator: Generator,
+          unrequiredChildIndex: Seq[Int] = Nil,
+          outer: Boolean = false,
+          alias: Option[String] = None,
+          outputNames: Seq[String] = Nil): LogicalPlan =
+        Generate(
+          generator,
+          unrequiredChildIndex,
+          outer,
+          alias,
+          outputNames.map(UnresolvedAttribute(_)),
+          logicalPlan)
 
       def insertInto(tableName: String): LogicalPlan = insertInto(table(tableName))
 

@@ -56,18 +56,153 @@ PandasGroupedMapFunction = Union[
 
 GroupedMapPandasUserDefinedFunction = NewType("GroupedMapPandasUserDefinedFunction", FunctionType)
 
-PandasCogroupedMapFunction = Callable[[DataFrameLike, DataFrameLike], DataFrameLike]
+PandasCogroupedMapFunction = Union[
+    Callable[[DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[[Any, DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[[DataFrameLike, DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[[Any, DataFrameLike, DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[[DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[[Any, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike], DataFrameLike],
+    Callable[
+        [DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike], DataFrameLike
+    ],
+    Callable[
+        [Any, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike],
+        DataFrameLike,
+    ],
+    Callable[
+        [
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+        ],
+        DataFrameLike,
+    ],
+    Callable[
+        [
+            Any,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+        ],
+        DataFrameLike,
+    ],
+    Callable[
+        [
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+        ],
+        DataFrameLike,
+    ],
+    Callable[
+        [
+            Any,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+            DataFrameLike,
+        ],
+        DataFrameLike,
+    ],
+]
 
 PandasGroupedMapFunctionWithState = Callable[
     [Any, Iterable[DataFrameLike], GroupState], Iterable[DataFrameLike]
 ]
+
 ArrowGroupedMapFunction = Union[
     Callable[[pyarrow.Table], pyarrow.Table],
     Callable[[Tuple[pyarrow.Scalar, ...], pyarrow.Table], pyarrow.Table],
 ]
+
 ArrowCogroupedMapFunction = Union[
     Callable[[pyarrow.Table, pyarrow.Table], pyarrow.Table],
     Callable[[Tuple[pyarrow.Scalar, ...], pyarrow.Table, pyarrow.Table], pyarrow.Table],
+    Callable[[pyarrow.Table, pyarrow.Table, pyarrow.Table], pyarrow.Table],
+    Callable[
+        [Tuple[pyarrow.Scalar, ...], pyarrow.Table, pyarrow.Table, pyarrow.Table], pyarrow.Table
+    ],
+    Callable[[pyarrow.Table, pyarrow.Table, pyarrow.Table, pyarrow.Table], pyarrow.Table],
+    Callable[
+        [Tuple[pyarrow.Scalar, ...], pyarrow.Table, pyarrow.Table, pyarrow.Table, pyarrow.Table],
+        pyarrow.Table,
+    ],
+    Callable[
+        [pyarrow.Table, pyarrow.Table, pyarrow.Table, pyarrow.Table, pyarrow.Table], pyarrow.Table
+    ],
+    Callable[
+        [
+            Tuple[pyarrow.Scalar, ...],
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+        ],
+        pyarrow.Table,
+    ],
+    Callable[
+        [
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+        ],
+        pyarrow.Table,
+    ],
+    Callable[
+        [
+            Tuple[pyarrow.Scalar, ...],
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+        ],
+        pyarrow.Table,
+    ],
+    Callable[
+        [
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+        ],
+        pyarrow.Table,
+    ],
+    Callable[
+        [
+            Tuple[pyarrow.Scalar, ...],
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+            pyarrow.Table,
+        ],
+        pyarrow.Table,
+    ],
 ]
 
 

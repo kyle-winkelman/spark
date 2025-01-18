@@ -34,7 +34,10 @@ from typing import (
 from pyspark.util import PythonEvalType
 from pyspark.sql.group import GroupedData as PySparkGroupedData
 from pyspark.sql.pandas.group_ops import PandasCogroupedOps as PySparkPandasCogroupedOps
-from pyspark.sql.pandas.functions import _validate_pandas_udf  # type: ignore[attr-defined]
+from pyspark.sql.pandas.functions import (  # type: ignore[attr-defined]
+    _validate_pandas_udf,
+    _validate_pandas_cogroup_udf,
+)
 from pyspark.sql.types import NumericType, StructType
 
 import pyspark.sql.connect.plan as plan
@@ -391,8 +394,8 @@ class GroupedData:
 
     applyInArrow.__doc__ = PySparkGroupedData.applyInArrow.__doc__
 
-    def cogroup(self, other: "GroupedData") -> "PandasCogroupedOps":
-        return PandasCogroupedOps(self, other)
+    def cogroup(self, other: "GroupedData", *others: "GroupedData") -> "PandasCogroupedOps":
+        return PandasCogroupedOps([self, other] + list(others))
 
     cogroup.__doc__ = PySparkGroupedData.cogroup.__doc__
 
@@ -401,10 +404,10 @@ GroupedData.__doc__ = PySparkGroupedData.__doc__
 
 
 class PandasCogroupedOps:
-    def __init__(self, gd1: "GroupedData", gd2: "GroupedData"):
-        gd1._df._check_same_session(gd2._df)
-        self._gd1 = gd1
-        self._gd2 = gd2
+    def __init__(self, gds: List["GroupedData"]):
+        for gd in gds[1:]:
+            gds[0]._df._check_same_session(gd._df)
+        self._gds = gds
 
     def applyInPandas(
         self, func: "PandasCogroupedMapFunction", schema: Union["StructType", str]
@@ -413,8 +416,12 @@ class PandasCogroupedOps:
         from pyspark.sql.connect.dataframe import DataFrame
 
         _validate_pandas_udf(func, PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF)
+        _validate_pandas_cogroup_udf(
+            func, PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF, len(self._gds)
+        )
+
         if isinstance(schema, str):
-            schema = cast(StructType, self._gd1._df._session._parse_ddl(schema))
+            schema = cast(StructType, self._gds[0]._df._session._parse_ddl(schema))
         udf_obj = UserDefinedFunction(
             func,
             returnType=schema,
@@ -423,13 +430,11 @@ class PandasCogroupedOps:
 
         res = DataFrame(
             plan.CoGroupMap(
-                input=self._gd1._df._plan,
-                input_grouping_cols=self._gd1._grouping_cols,
-                other=self._gd2._df._plan,
-                other_grouping_cols=self._gd2._grouping_cols,
+                relations=[gd._df._plan for gd in self._gds],
+                grouping_expressions=[gd._grouping_cols for gd in self._gds],
                 function=udf_obj,
             ),
-            session=self._gd1._df._session,
+            session=self._gds[0]._df._session,
         )
         if isinstance(schema, StructType):
             res._cached_schema = schema
@@ -444,8 +449,12 @@ class PandasCogroupedOps:
         from pyspark.sql.connect.dataframe import DataFrame
 
         _validate_pandas_udf(func, PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF)
+        _validate_pandas_cogroup_udf(
+            func, PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF, len(self._gds)
+        )
+
         if isinstance(schema, str):
-            schema = cast(StructType, self._gd1._df._session._parse_ddl(schema))
+            schema = cast(StructType, self._gds[0]._df._session._parse_ddl(schema))
         udf_obj = UserDefinedFunction(
             func,
             returnType=schema,
@@ -454,13 +463,11 @@ class PandasCogroupedOps:
 
         res = DataFrame(
             plan.CoGroupMap(
-                input=self._gd1._df._plan,
-                input_grouping_cols=self._gd1._grouping_cols,
-                other=self._gd2._df._plan,
-                other_grouping_cols=self._gd2._grouping_cols,
+                relations=[gd._df._plan for gd in self._gds],
+                grouping_expressions=[gd._grouping_cols for gd in self._gds],
                 function=udf_obj,
             ),
-            session=self._gd1._df._session,
+            session=self._gds[0]._df._session,
         )
         if isinstance(schema, StructType):
             res._cached_schema = schema

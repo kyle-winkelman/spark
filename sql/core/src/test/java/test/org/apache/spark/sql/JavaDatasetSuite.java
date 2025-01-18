@@ -451,43 +451,315 @@ public class JavaDatasetSuite implements Serializable {
     KeyValueGroupedDataset<Integer, Integer> grouped2 = ds2.groupByKey(
         (MapFunction<Integer, Integer>) v -> v / 2,
       Encoders.INT());
+    CoGroupFunction2<Integer, String, Integer, String> cogroupFunction2 = (key, left, right) -> {
+      StringBuilder sb = new StringBuilder(key.toString());
+      while (left.hasNext()) {
+        sb.append(left.next());
+      }
+      sb.append("#");
+      while (right.hasNext()) {
+        sb.append(right.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
 
-    Dataset<String> cogrouped = grouped.cogroup(
+    List<Integer> data3 = Arrays.asList(3, 8, 4, 5);
+    Dataset<Integer> ds3 = spark.createDataset(data3, Encoders.INT());
+    KeyValueGroupedDataset<Integer, Integer> grouped3 = ds3.groupByKey(
+            (MapFunction<Integer, Integer>) v -> v % 2,
+            Encoders.INT());
+    CoGroupFunction3<Integer, String, Integer, Integer, String> cogroupFunction3 = (k, v1, v2, v3) -> {
+      StringBuilder sb = new StringBuilder(k.toString());
+      sb.append(":");
+      while (v1.hasNext()) {
+        sb.append(v1.next());
+      }
+      sb.append("#");
+      while (v2.hasNext()) {
+        sb.append(v2.next());
+      }
+      sb.append("#");
+      while (v3.hasNext()) {
+        sb.append(v3.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
+
+    List<Integer> data4 = Arrays.asList(1, 7, 8, 9);
+    Dataset<Integer> ds4 = spark.createDataset(data4, Encoders.INT());
+    KeyValueGroupedDataset<Integer, Integer> grouped4 = ds4.groupByKey(
+            (MapFunction<Integer, Integer>) v -> v / 3,
+            Encoders.INT());
+    CoGroupFunction4<Integer, String, Integer, Integer, Integer, String> cogroupFunction4 = (k, v1, v2, v3, v4) -> {
+      StringBuilder sb = new StringBuilder(k.toString());
+      sb.append(":");
+      while (v1.hasNext()) {
+        sb.append(v1.next());
+      }
+      sb.append("#");
+      while (v2.hasNext()) {
+        sb.append(v2.next());
+      }
+      sb.append("#");
+      while (v3.hasNext()) {
+        sb.append(v3.next());
+      }
+      sb.append("#");
+      while (v4.hasNext()) {
+        sb.append(v4.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
+
+    List<Integer> data5 = Arrays.asList(8, 9, 10, 11);
+    Dataset<Integer> ds5 = spark.createDataset(data5, Encoders.INT());
+    KeyValueGroupedDataset<Integer, Integer> grouped5 = ds5.groupByKey(
+            (MapFunction<Integer, Integer>) v -> v % 3,
+            Encoders.INT());
+    CoGroupFunction5<Integer, String, Integer, Integer, Integer, Integer, String> cogroupFunction5 = (k, v1, v2, v3, v4, v5) -> {
+      StringBuilder sb = new StringBuilder(k.toString());
+      sb.append(":");
+      while (v1.hasNext()) {
+        sb.append(v1.next());
+      }
+      sb.append("#");
+      while (v2.hasNext()) {
+        sb.append(v2.next());
+      }
+      sb.append("#");
+      while (v3.hasNext()) {
+        sb.append(v3.next());
+      }
+      sb.append("#");
+      while (v4.hasNext()) {
+        sb.append(v4.next());
+      }
+      sb.append("#");
+      while (v5.hasNext()) {
+        sb.append(v5.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
+
+    List<Integer> data6 = Arrays.asList(5, 12, 15, 6);
+    Dataset<Integer> ds6 = spark.createDataset(data6, Encoders.INT());
+    KeyValueGroupedDataset<Integer, Integer> grouped6 = ds6.groupByKey(
+            (MapFunction<Integer, Integer>) v -> v / 4,
+            Encoders.INT());
+    CoGroupFunction6<Integer, String, Integer, Integer, Integer, Integer, Integer, String> cogroupFunction6 = (k, v1, v2, v3, v4, v5, v6) -> {
+      StringBuilder sb = new StringBuilder(k.toString());
+      sb.append(":");
+      while (v1.hasNext()) {
+        sb.append(v1.next());
+      }
+      sb.append("#");
+      while (v2.hasNext()) {
+        sb.append(v2.next());
+      }
+      sb.append("#");
+      while (v3.hasNext()) {
+        sb.append(v3.next());
+      }
+      sb.append("#");
+      while (v4.hasNext()) {
+        sb.append(v4.next());
+      }
+      sb.append("#");
+      while (v5.hasNext()) {
+        sb.append(v5.next());
+      }
+      sb.append("#");
+      while (v6.hasNext()) {
+        sb.append(v6.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
+
+    List<Integer> data7 = Arrays.asList(9, 13, 14, 16);
+    Dataset<Integer> ds7 = spark.createDataset(data7, Encoders.INT());
+    KeyValueGroupedDataset<Integer, Integer> grouped7 = ds7.groupByKey(
+            (MapFunction<Integer, Integer>) v -> v % 4,
+            Encoders.INT());
+    CoGroupFunction7<Integer, String, Integer, Integer, Integer, Integer, Integer, Integer, String> cogroupFunction7 = (k, v1, v2, v3, v4, v5, v6, v7) -> {
+      StringBuilder sb = new StringBuilder(k.toString());
+      sb.append(":");
+      while (v1.hasNext()) {
+        sb.append(v1.next());
+      }
+      sb.append("#");
+      while (v2.hasNext()) {
+        sb.append(v2.next());
+      }
+      sb.append("#");
+      while (v3.hasNext()) {
+        sb.append(v3.next());
+      }
+      sb.append("#");
+      while (v4.hasNext()) {
+        sb.append(v4.next());
+      }
+      sb.append("#");
+      while (v5.hasNext()) {
+        sb.append(v5.next());
+      }
+      sb.append("#");
+      while (v6.hasNext()) {
+        sb.append(v6.next());
+      }
+      sb.append("#");
+      while (v7.hasNext()) {
+        sb.append(v7.next());
+      }
+      return Collections.singletonList(sb.toString()).iterator();
+    };
+
+    Dataset<String> cogroup2 = grouped.cogroup(
+            grouped2,
+            cogroupFunction2,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("1a#2", "3barfoo#67", "5#10"),toSet(cogroup2.collectAsList()));
+
+    Dataset<String> cogroup3 = grouped.cogroup(
       grouped2,
-      (CoGroupFunction<Integer, String, Integer, String>) (key, left, right) -> {
-        StringBuilder sb = new StringBuilder(key.toString());
-        while (left.hasNext()) {
-          sb.append(left.next());
-        }
-        sb.append("#");
-        while (right.hasNext()) {
-          sb.append(right.next());
-        }
-        return Collections.singletonList(sb.toString()).iterator();
-      },
+      grouped3,
+      cogroupFunction3,
       Encoders.STRING());
 
-    Assertions.assertEquals(asSet("1a#2", "3foobar#67", "5#10"), toSet(cogrouped.collectAsList()));
+    Assertions.assertEquals(asSet("0:##84", "1:a#2#35", "3:foobar#67#", "5:#10#"), toSet(cogroup3.collectAsList()));
 
-    Dataset<String> cogroupSorted = grouped.cogroupSorted(
+    Dataset<String> cogroup4 = grouped.cogroup(
+            grouped2,
+            grouped3,
+            grouped4,
+            cogroupFunction4,
+            Encoders.STRING());
+
+    Assertions.assertEquals(asSet("0:##84#1", "1:a#2#35#", "2:###78", "3:foobar#67##9", "5:#10##"), toSet(cogroup4.collectAsList()));
+
+    Dataset<String> cogroup5 = grouped.cogroup(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            cogroupFunction5,
+            Encoders.STRING());
+
+    Assertions.assertEquals(asSet("0:##84#1#9", "1:a#2#35##10", "2:###78#811", "3:foobar#67##9#", "5:#10###"), toSet(cogroup5.collectAsList()));
+
+    Dataset<String> cogroup6 = grouped.cogroup(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            grouped6,
+            cogroupFunction6,
+            Encoders.STRING());
+
+    Assertions.assertEquals(asSet("0:##84#1#9#", "1:a#2#35##10#56", "2:###78#811#", "3:foobar#67##9##1215", "5:#10####"), toSet(cogroup6.collectAsList()));
+
+    Dataset<String> cogroup7 = grouped.cogroup(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            grouped6,
+            grouped7,
+            cogroupFunction7,
+            Encoders.STRING());
+
+    Assertions.assertEquals(asSet("0:##84#1#9##16", "1:a#2#35##10#56#913", "2:###78#811##14", "3:foobar#67##9##1215#", "5:#10#####"), toSet(cogroup7.collectAsList()));
+
+    Dataset<String> cogroupSorted2 = grouped.cogroupSorted(
       grouped2,
       new Column[] { ds.col("value") },
       new Column[] { ds2.col("value").desc() },
-      (CoGroupFunction<Integer, String, Integer, String>) (key, left, right) -> {
-        StringBuilder sb = new StringBuilder(key.toString());
-        while (left.hasNext()) {
-          sb.append(left.next());
-        }
-        sb.append("#");
-        while (right.hasNext()) {
-          sb.append(right.next());
-        }
-        return Collections.singletonList(sb.toString()).iterator();
-      },
+      cogroupFunction2,
       Encoders.STRING());
 
     Assertions.assertEquals(
-      asSet("1a#2", "3barfoo#76", "5#10"),toSet(cogroupSorted.collectAsList()));
+      asSet("1a#2", "3barfoo#76", "5#10"),toSet(cogroupSorted2.collectAsList()));
+
+    Dataset<String> cogroupSorted3 = grouped.cogroupSorted(
+            grouped2,
+            grouped3,
+            new Column[] { ds.col("value") },
+            new Column[] { ds2.col("value").desc() },
+            new Column[] { ds3.col("value") },
+            cogroupFunction3,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("0:##48", "1a#2#35", "3barfoo#76#", "5:#10#"),toSet(cogroupSorted3.collectAsList()));
+
+    Dataset<String> cogroupSorted4 = grouped.cogroupSorted(
+            grouped2,
+            grouped3,
+            grouped4,
+            new Column[] { ds.col("value") },
+            new Column[] { ds2.col("value").desc() },
+            new Column[] { ds3.col("value") },
+            new Column[] { ds4.col("value").desc() },
+            cogroupFunction4,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("0:##48#1", "1a#2#35#", "2:###87", "3barfoo#76##9", "5:#10##"),toSet(cogroupSorted4.collectAsList()));
+
+    Dataset<String> cogroupSorted5 = grouped.cogroupSorted(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            new Column[] { ds.col("value") },
+            new Column[] { ds2.col("value").desc() },
+            new Column[] { ds3.col("value") },
+            new Column[] { ds4.col("value").desc() },
+            new Column[] { ds5.col("value").desc() },
+            cogroupFunction5,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("0:##48#1#9", "1a#2#35##10", "2:###87#118", "3barfoo#76##9#", "5:#10###"),toSet(cogroupSorted5.collectAsList()));
+
+    Dataset<String> cogroupSorted6 = grouped.cogroupSorted(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            grouped6,
+            new Column[] { ds.col("value") },
+            new Column[] { ds2.col("value").desc() },
+            new Column[] { ds3.col("value") },
+            new Column[] { ds4.col("value").desc() },
+            new Column[] { ds5.col("value").desc() },
+            new Column[] { ds6.col("value").desc() },
+            cogroupFunction6,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("0:##48#1#9#", "1a#2#35##10#65", "2:###87#118#", "3barfoo#76##9##1512", "5:#10####"),toSet(cogroupSorted6.collectAsList()));
+
+    Dataset<String> cogroupSorted7 = grouped.cogroupSorted(
+            grouped2,
+            grouped3,
+            grouped4,
+            grouped5,
+            grouped6,
+            grouped7,
+            new Column[] { ds.col("value") },
+            new Column[] { ds2.col("value").desc() },
+            new Column[] { ds3.col("value") },
+            new Column[] { ds4.col("value").desc() },
+            new Column[] { ds5.col("value").desc() },
+            new Column[] { ds6.col("value").desc() },
+            new Column[] { ds7.col("value").desc() },
+            cogroupFunction7,
+            Encoders.STRING());
+
+    Assertions.assertEquals(
+            asSet("0:##48#1#9##16", "1a#2#35##10#65#139", "2:###87#118##14", "3barfoo#76##9##1512#", "5:#10#####"),toSet(cogroupSorted7.collectAsList()));
   }
 
   @Test

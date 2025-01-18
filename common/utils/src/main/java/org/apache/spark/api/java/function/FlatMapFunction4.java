@@ -17,12 +17,13 @@
 
 package org.apache.spark.api.java.function;
 
+import java.io.Serializable;
+import java.util.Iterator;
+
 /**
- * A function that returns zero or more output records from each grouping key and its values from 2
- * Datasets.
- *
- * @deprecated Use {@link CoGroupFunction2}.
+ * A function that takes four inputs and returns zero or more output records.
  */
-@Deprecated(since = "4.0.0")
 @FunctionalInterface
-public interface CoGroupFunction<K, V1, V2, R> extends CoGroupFunction2<K, V1, V2, R> {}
+public interface FlatMapFunction4<T1, T2, T3, T4, R> extends Serializable {
+  Iterator<R> call(T1 t1, T2 t2, T3 t3, T4 t4) throws Exception;
+}

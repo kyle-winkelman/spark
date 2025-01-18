@@ -324,6 +324,19 @@ trait JavaRDDLike[T, This <: JavaRDDLike[T, This]] extends Serializable {
       rdd.zipPartitions(other.rdd)(fn)(other.classTag, fakeClassTag[V]))(fakeClassTag[V])
   }
 
+  def zipPartitions[U1, U2, R](
+      other1: JavaRDDLike[U1, _],
+      other2: JavaRDDLike[U2, _],
+      f: FlatMapFunction3[JIterator[T], JIterator[U1], JIterator[U2], R]): JavaRDD[R] = {
+    def fn: (Iterator[T], Iterator[U1], Iterator[U2]) => Iterator[R] = {
+      (t: Iterator[T], u1: Iterator[U1], u2: Iterator[U2]) =>
+        f.call(t.asJava, u1.asJava, u2.asJava).asScala
+    }
+    JavaRDD.fromRDD(
+      rdd.zipPartitions(other1.rdd, other2.rdd)(fn)(other1.classTag, other2.classTag,
+        fakeClassTag[R]))(fakeClassTag[R])
+  }
+
   /**
    * Zips this RDD with generated unique Long ids. Items in the kth partition will get ids k, n+k,
    * 2*n+k, ..., where n is the number of partitions. So there may exist gaps, but this method

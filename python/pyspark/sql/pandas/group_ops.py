@@ -37,6 +37,7 @@ from pyspark.sql.streaming.stateful_processor import (
 from pyspark.sql.streaming.stateful_processor import StatefulProcessor, StatefulProcessorHandle
 from pyspark.sql.streaming.stateful_processor_util import TransformWithStateInPandasFuncMode
 from pyspark.sql.types import StructType
+from pyspark.sql.utils import to_java_array
 
 if TYPE_CHECKING:
     from pyspark.sql.pandas._typing import (
@@ -838,7 +839,7 @@ class PandasGroupedOpsMixin:
         jdf = self._jgd.flatMapGroupsInArrow(udf_column._jc)
         return DataFrame(jdf, self.session)
 
-    def cogroup(self, other: "GroupedData") -> "PandasCogroupedOps":
+    def cogroup(self, other: "GroupedData", *others: "GroupedData") -> "PandasCogroupedOps":
         """
         Cogroups this group with another group so that we can run cogrouped operations.
 
@@ -853,7 +854,7 @@ class PandasGroupedOpsMixin:
 
         assert isinstance(self, GroupedData)
 
-        return PandasCogroupedOps(self, other)
+        return PandasCogroupedOps([self, other] + list(others))
 
 
 class PandasCogroupedOps:
@@ -867,9 +868,8 @@ class PandasCogroupedOps:
         Support Spark Connect.
     """
 
-    def __init__(self, gd1: "GroupedData", gd2: "GroupedData"):
-        self._gd1 = gd1
-        self._gd2 = gd2
+    def __init__(self, gds: List["GroupedData"]):
+        self._gds = gds
 
     def applyInPandas(
         self, func: "PandasCogroupedMapFunction", schema: Union["StructType", str]
@@ -960,17 +960,31 @@ class PandasCogroupedOps:
         --------
         pyspark.sql.functions.pandas_udf
         """
-        from pyspark.sql.pandas.functions import pandas_udf
+        from pyspark.sql.pandas.functions import (  # type: ignore[attr-defined]
+            _validate_pandas_cogroup_udf,
+            pandas_udf,
+        )
 
+        _validate_pandas_cogroup_udf(
+            func, PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF, len(self._gds)
+        )
         # The usage of the pandas_udf is internal so type checking is disabled.
         udf = pandas_udf(
             func, returnType=schema, functionType=PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF
         )  # type: ignore[call-overload]
 
-        all_cols = self._extract_cols(self._gd1) + self._extract_cols(self._gd2)
+        all_cols = [cols for gd in self._gds for cols in self._extract_cols(gd)]
         udf_column = udf(*all_cols)
-        jdf = self._gd1._jgd.flatMapCoGroupsInPandas(self._gd2._jgd, udf_column._jc)
-        return DataFrame(jdf, self._gd1.session)
+
+        gateway = self._gds[0].session.sparkContext._gateway
+        others = to_java_array(
+            gateway,
+            gateway.jvm.org.apache.spark.sql.RelationalGroupedDataset,  # type: ignore[union-attr]
+            [gd._jgd for gd in self._gds[1:]],
+        )
+        jdf = self._gds[0]._jgd.flatMapCoGroupsInPandas(udf_column._jc, others)
+
+        return DataFrame(jdf, self._gds[0].session)
 
     def applyInArrow(
         self, func: "ArrowCogroupedMapFunction", schema: Union[StructType, str]
@@ -1058,17 +1072,31 @@ class PandasCogroupedOps:
         --------
         pyspark.sql.functions.pandas_udf
         """
-        from pyspark.sql.pandas.functions import pandas_udf
+        from pyspark.sql.pandas.functions import (  # type: ignore[attr-defined]
+            _validate_pandas_cogroup_udf,
+            pandas_udf,
+        )
 
+        _validate_pandas_cogroup_udf(
+            func, PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF, len(self._gds)
+        )
         # The usage of the pandas_udf is internal so type checking is disabled.
         udf = pandas_udf(
             func, returnType=schema, functionType=PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF
         )  # type: ignore[call-overload]
 
-        all_cols = self._extract_cols(self._gd1) + self._extract_cols(self._gd2)
+        all_cols = [cols for gd in self._gds for cols in self._extract_cols(gd)]
         udf_column = udf(*all_cols)
-        jdf = self._gd1._jgd.flatMapCoGroupsInArrow(self._gd2._jgd, udf_column._jc)
-        return DataFrame(jdf, self._gd1.session)
+
+        gateway = self._gds[0].session.sparkContext._gateway
+        others = to_java_array(
+            gateway,
+            gateway.jvm.org.apache.spark.sql.RelationalGroupedDataset,  # type: ignore[union-attr]
+            [gd._jgd for gd in self._gds[1:]],
+        )
+        jdf = self._gds[0]._jgd.flatMapCoGroupsInArrow(udf_column._jc, others)
+
+        return DataFrame(jdf, self._gds[0].session)
 
     @staticmethod
     def _extract_cols(gd: "GroupedData") -> List[Column]:

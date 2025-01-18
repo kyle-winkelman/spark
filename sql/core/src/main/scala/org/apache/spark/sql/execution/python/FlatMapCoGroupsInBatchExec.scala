@@ -24,20 +24,17 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning}
 import org.apache.spark.sql.catalyst.types.DataTypeUtils
-import org.apache.spark.sql.execution.{BinaryExecNode, CoGroupedIterator, SparkPlan}
+import org.apache.spark.sql.execution.{CoGroupedIterator, SparkPlan}
 import org.apache.spark.sql.execution.python.PandasGroupUtils._
-
 
 /**
  * Base class for Python-based FlatMapCoGroupsIn*Exec.
  */
-trait FlatMapCoGroupsInBatchExec extends SparkPlan with BinaryExecNode with PythonSQLMetrics {
-  val leftGroup: Seq[Attribute]
-  val rightGroup: Seq[Attribute]
+trait FlatMapCoGroupsInBatchExec extends SparkPlan with PythonSQLMetrics {
+  val groups: Seq[Seq[Attribute]]
   val func: Expression
   val output: Seq[Attribute]
-  val left: SparkPlan
-  val right: SparkPlan
+  val children: Seq[SparkPlan]
 
   protected val pythonEvalType: Int
 
@@ -50,39 +47,45 @@ trait FlatMapCoGroupsInBatchExec extends SparkPlan with BinaryExecNode with Pyth
 
   override def producedAttributes: AttributeSet = AttributeSet(output)
 
-  override def outputPartitioning: Partitioning = left.outputPartitioning
+  override def outputPartitioning: Partitioning = children.head.outputPartitioning
 
-  override def requiredChildDistribution: Seq[Distribution] = {
-    val leftDist = if (leftGroup.isEmpty) AllTuples else ClusteredDistribution(leftGroup)
-    val rightDist = if (rightGroup.isEmpty) AllTuples else ClusteredDistribution(rightGroup)
-    leftDist :: rightDist :: Nil
-  }
+  override def requiredChildDistribution: Seq[Distribution] =
+    groups.map { group =>
+      if (group.isEmpty) AllTuples else ClusteredDistribution(group)
+    }
 
-  override def requiredChildOrdering: Seq[Seq[SortOrder]] = {
-    leftGroup
-      .map(SortOrder(_, Ascending)) :: rightGroup.map(SortOrder(_, Ascending)) :: Nil
-  }
+  override def requiredChildOrdering: Seq[Seq[SortOrder]] =
+    groups.map(_.map(SortOrder(_, Ascending)))
 
   override protected def doExecute(): RDD[InternalRow] = {
-    val (leftDedup, leftArgOffsets) = resolveArgOffsets(left.output, leftGroup)
-    val (rightDedup, rightArgOffsets) = resolveArgOffsets(right.output, rightGroup)
+    val (dedups, argOffsets) = children
+      .zip(groups)
+      .map { case (child, group) =>
+        resolveArgOffsets(child.output, group)
+      }
+      .unzip
     val jobArtifactUUID = JobArtifactSet.getCurrentJobArtifactState.map(_.uuid)
 
     // Map cogrouped rows to ArrowPythonRunner results, Only execute if partition is not empty
-    left.execute().zipPartitions(right.execute())  { (leftData, rightData) =>
-      if (leftData.isEmpty && rightData.isEmpty) Iterator.empty else {
-
-        val leftGrouped = groupAndProject(leftData, leftGroup, left.output, leftDedup)
-        val rightGrouped = groupAndProject(rightData, rightGroup, right.output, rightDedup)
-        val data = new CoGroupedIterator(leftGrouped, rightGrouped, leftGroup)
-          .map { case (_, l, r) => (l, r) }
+    children.head.execute().zipPartitions(children.tail.map(_.execute()): _*) { iterators =>
+      if (iterators.forall(_.isEmpty)) Iterator.empty
+      else {
+        val groupedIterators = iterators.zip(groups).zip(children).zip(dedups).map {
+          case (((iterator, group), child), dedup) =>
+            groupAndProject(
+              iterator.asInstanceOf[Iterator[InternalRow]],
+              group,
+              child.output,
+              dedup)
+        }
+        val data = new CoGroupedIterator(groupedIterators, groups.head)
+          .map(_._2)
 
         val runner = new CoGroupedArrowPythonRunner(
           chainedFunc,
           pythonEvalType,
-          Array(leftArgOffsets ++ rightArgOffsets),
-          DataTypeUtils.fromAttributes(leftDedup),
-          DataTypeUtils.fromAttributes(rightDedup),
+          Array(argOffsets.flatMap(_.iterator).toArray),
+          dedups.map(DataTypeUtils.fromAttributes),
           sessionLocalTimeZone,
           pythonRunnerConf,
           pythonMetrics,

@@ -150,7 +150,7 @@ class CogroupedApplyInPandasTestsMixin:
 
         with self.assertRaisesRegex(
             IllegalArgumentException,
-            "requirement failed: Cogroup keys must have same size: 2 != 1",
+            "requirement failed: Cogroup keys must have same size",
         ):
             (left.groupby("id", "k").cogroup(right.groupby("id"))).applyInPandas(
                 merge_pandas, "id long, k int, v int"

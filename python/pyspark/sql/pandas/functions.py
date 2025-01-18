@@ -515,25 +515,34 @@ def _validate_pandas_udf(f, evalType) -> int:
             },
         )
 
-    if evalType == PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF and len(argspec.args) not in (2, 3):
-        raise PySparkValueError(
-            errorClass="INVALID_PANDAS_UDF",
-            messageParameters={
-                "detail": "the function in cogroup.applyInPandas must take either two arguments "
-                "(left, right) or three arguments (key, left, right).",
-            },
-        )
-
-    if evalType == PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF and len(argspec.args) not in (2, 3):
-        raise PySparkValueError(
-            errorClass="INVALID_PANDAS_UDF",
-            messageParameters={
-                "detail": "the function in cogroup.applyInArrow must take either two arguments "
-                "(left, right) or three arguments (key, left, right).",
-            },
-        )
-
     return evalType
+
+
+def _validate_pandas_cogroup_udf(f, evalType, n):
+    argspec = getfullargspec(f)
+    args = len(argspec.args)
+
+    if evalType == PythonEvalType.SQL_COGROUPED_MAP_PANDAS_UDF:
+        if args not in (n, n + 1):
+            parameters = ", ".join([f"df{i}" for i in range(n)])
+            raise PySparkValueError(
+                errorClass="INVALID_PANDAS_UDF",
+                messageParameters={
+                    "detail": f"the function in cogroup.applyInPandas must take either {n} "
+                    f"arguments ({parameters}) or {n + 1} arguments (key, {parameters}).",
+                },
+            )
+
+    if evalType == PythonEvalType.SQL_COGROUPED_MAP_ARROW_UDF:
+        if args not in (n, n + 1):
+            parameters = ", ".join([f"df{i}" for i in range(n)])
+            raise PySparkValueError(
+                errorClass="INVALID_PANDAS_UDF",
+                messageParameters={
+                    "detail": f"the function in cogroup.applyInArrow must take either {n} "
+                    f"arguments ({parameters}) or {n + 1} arguments (key, {parameters}).",
+                },
+            )
 
 
 def _create_pandas_udf(f, returnType, evalType):

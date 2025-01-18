@@ -3763,101 +3763,79 @@ global___GroupMap = GroupMap
 class CoGroupMap(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    INPUT_FIELD_NUMBER: builtins.int
-    INPUT_GROUPING_EXPRESSIONS_FIELD_NUMBER: builtins.int
-    OTHER_FIELD_NUMBER: builtins.int
-    OTHER_GROUPING_EXPRESSIONS_FIELD_NUMBER: builtins.int
+    RELATIONS_FIELD_NUMBER: builtins.int
+    GROUPING_EXPRESSIONS_FIELD_NUMBER: builtins.int
     FUNC_FIELD_NUMBER: builtins.int
-    INPUT_SORTING_EXPRESSIONS_FIELD_NUMBER: builtins.int
-    OTHER_SORTING_EXPRESSIONS_FIELD_NUMBER: builtins.int
+    SORTING_EXPRESSIONS_FIELD_NUMBER: builtins.int
     @property
-    def input(self) -> global___Relation:
+    def relations(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Relation]:
         """(Required) One input relation for CoGroup Map API - applyInPandas."""
     @property
-    def input_grouping_expressions(
+    def grouping_expressions(
         self,
     ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
-        pyspark.sql.connect.proto.expressions_pb2.Expression
+        global___ExpressionSet
     ]:
-        """Expressions for grouping keys of the first input relation."""
-    @property
-    def other(self) -> global___Relation:
-        """(Required) The other input relation."""
-    @property
-    def other_grouping_expressions(
-        self,
-    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
-        pyspark.sql.connect.proto.expressions_pb2.Expression
-    ]:
-        """Expressions for grouping keys of the other input relation."""
+        """Expression sets for grouping keys of the relations."""
     @property
     def func(self) -> pyspark.sql.connect.proto.expressions_pb2.CommonInlineUserDefinedFunction:
         """(Required) Input user-defined function."""
     @property
-    def input_sorting_expressions(
+    def sorting_expressions(
         self,
     ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
-        pyspark.sql.connect.proto.expressions_pb2.Expression
-    ]:
-        """(Optional) Expressions for sorting. Only used by Scala Sorted CoGroup Map API."""
-    @property
-    def other_sorting_expressions(
-        self,
-    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
-        pyspark.sql.connect.proto.expressions_pb2.Expression
+        global___ExpressionSet
     ]:
         """(Optional) Expressions for sorting. Only used by Scala Sorted CoGroup Map API."""
     def __init__(
         self,
         *,
-        input: global___Relation | None = ...,
-        input_grouping_expressions: collections.abc.Iterable[
-            pyspark.sql.connect.proto.expressions_pb2.Expression
-        ]
-        | None = ...,
-        other: global___Relation | None = ...,
-        other_grouping_expressions: collections.abc.Iterable[
-            pyspark.sql.connect.proto.expressions_pb2.Expression
-        ]
-        | None = ...,
+        relations: collections.abc.Iterable[global___Relation] | None = ...,
+        grouping_expressions: collections.abc.Iterable[global___ExpressionSet] | None = ...,
         func: pyspark.sql.connect.proto.expressions_pb2.CommonInlineUserDefinedFunction
         | None = ...,
-        input_sorting_expressions: collections.abc.Iterable[
-            pyspark.sql.connect.proto.expressions_pb2.Expression
-        ]
-        | None = ...,
-        other_sorting_expressions: collections.abc.Iterable[
-            pyspark.sql.connect.proto.expressions_pb2.Expression
-        ]
-        | None = ...,
+        sorting_expressions: collections.abc.Iterable[global___ExpressionSet] | None = ...,
     ) -> None: ...
-    def HasField(
-        self,
-        field_name: typing_extensions.Literal[
-            "func", b"func", "input", b"input", "other", b"other"
-        ],
-    ) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["func", b"func"]) -> builtins.bool: ...
     def ClearField(
         self,
         field_name: typing_extensions.Literal[
             "func",
             b"func",
-            "input",
-            b"input",
-            "input_grouping_expressions",
-            b"input_grouping_expressions",
-            "input_sorting_expressions",
-            b"input_sorting_expressions",
-            "other",
-            b"other",
-            "other_grouping_expressions",
-            b"other_grouping_expressions",
-            "other_sorting_expressions",
-            b"other_sorting_expressions",
+            "grouping_expressions",
+            b"grouping_expressions",
+            "relations",
+            b"relations",
+            "sorting_expressions",
+            b"sorting_expressions",
         ],
     ) -> None: ...
 
 global___CoGroupMap = CoGroupMap
+
+class ExpressionSet(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EXPRESSIONS_FIELD_NUMBER: builtins.int
+    @property
+    def expressions(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        pyspark.sql.connect.proto.expressions_pb2.Expression
+    ]: ...
+    def __init__(
+        self,
+        *,
+        expressions: collections.abc.Iterable[pyspark.sql.connect.proto.expressions_pb2.Expression]
+        | None = ...,
+    ) -> None: ...
+    def ClearField(
+        self, field_name: typing_extensions.Literal["expressions", b"expressions"]
+    ) -> None: ...
+
+global___ExpressionSet = ExpressionSet
 
 class ApplyInPandasWithState(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

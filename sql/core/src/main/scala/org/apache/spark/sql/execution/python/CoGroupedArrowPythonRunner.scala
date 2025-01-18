@@ -33,7 +33,6 @@ import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.Utils
 
-
 /**
  * Python UDF Runner for cogrouped udfs. It sends Arrow bathes from two different DataFrames,
  * groups them in Python, and receive it back in JVM as batches of single DataFrame.
@@ -42,21 +41,22 @@ class CoGroupedArrowPythonRunner(
     funcs: Seq[(ChainedPythonFunctions, Long)],
     evalType: Int,
     argOffsets: Array[Array[Int]],
-    leftSchema: StructType,
-    rightSchema: StructType,
+    schemas: Seq[StructType],
     timeZoneId: String,
     conf: Map[String, String],
     override val pythonMetrics: Map[String, SQLMetric],
     jobArtifactUUID: Option[String],
     profiler: Option[String])
-  extends BasePythonRunner[
-    (Iterator[InternalRow], Iterator[InternalRow]), ColumnarBatch](
-    funcs.map(_._1), evalType, argOffsets, jobArtifactUUID, pythonMetrics)
-  with BasicPythonArrowOutput {
+    extends BasePythonRunner[Seq[Iterator[InternalRow]], ColumnarBatch](
+      funcs.map(_._1),
+      evalType,
+      argOffsets,
+      jobArtifactUUID,
+      pythonMetrics)
+    with BasicPythonArrowOutput {
 
   override val pythonExec: String =
-    SQLConf.get.pysparkWorkerPythonExecutable.getOrElse(
-      funcs.head._1.funcs.head.pythonExec)
+    SQLConf.get.pysparkWorkerPythonExecutable.getOrElse(funcs.head._1.funcs.head.pythonExec)
 
   override val faultHandlerEnabled: Boolean = SQLConf.get.pythonUDFWorkerFaulthandlerEnabled
 
@@ -66,7 +66,7 @@ class CoGroupedArrowPythonRunner(
   protected def newWriter(
       env: SparkEnv,
       worker: PythonWorker,
-      inputIterator: Iterator[(Iterator[InternalRow], Iterator[InternalRow])],
+      inputIterator: Iterator[Seq[Iterator[InternalRow]]],
       partitionIndex: Int,
       context: TaskContext): Writer = {
 
@@ -86,13 +86,15 @@ class CoGroupedArrowPythonRunner(
 
       override def writeNextInputToStream(dataOut: DataOutputStream): Boolean = {
         // For each we first send the number of dataframes in each group then send
-        // first df, then send second df.  End of data is marked by sending 0.
+        // first df, then send second df, etc.  End of data is marked by sending 0.
         if (inputIterator.hasNext) {
           val startData = dataOut.size()
-          dataOut.writeInt(2)
-          val (nextLeft, nextRight) = inputIterator.next()
-          writeGroup(nextLeft, leftSchema, dataOut, "left")
-          writeGroup(nextRight, rightSchema, dataOut, "right")
+
+          val next = inputIterator.next()
+          dataOut.writeInt(next.size)
+          next.zip(schemas).zipWithIndex.foreach { case ((next, schema), index) =>
+            writeGroup(next, schema, dataOut, index)
+          }
 
           val deltaData = dataOut.size() - startData
           pythonMetrics("pythonDataSent") += deltaData
@@ -107,11 +109,13 @@ class CoGroupedArrowPythonRunner(
           group: Iterator[InternalRow],
           schema: StructType,
           dataOut: DataOutputStream,
-          name: String): Unit = {
+          index: Int): Unit = {
         val arrowSchema =
           ArrowUtils.toArrowSchema(schema, timeZoneId, errorOnDuplicatedFieldNames = true)
         val allocator = ArrowUtils.rootAllocator.newChildAllocator(
-          s"stdout writer for $pythonExec ($name)", 0, Long.MaxValue)
+          s"stdout writer for $pythonExec (child$index)",
+          0,
+          Long.MaxValue)
         val root = VectorSchemaRoot.create(arrowSchema, allocator)
 
         Utils.tryWithSafeFinally {
@@ -125,7 +129,7 @@ class CoGroupedArrowPythonRunner(
           arrowWriter.finish()
           writer.writeBatch()
           writer.end()
-        }{
+        } {
           root.close()
           allocator.close()
         }
@@ -133,4 +137,3 @@ class CoGroupedArrowPythonRunner(
     }
   }
 }
-

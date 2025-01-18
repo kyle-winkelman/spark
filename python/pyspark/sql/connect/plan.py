@@ -2471,37 +2471,43 @@ class CoGroupMap(LogicalPlan):
 
     def __init__(
         self,
-        input: Optional["LogicalPlan"],
-        input_grouping_cols: Sequence[Column],
-        other: Optional["LogicalPlan"],
-        other_grouping_cols: Sequence[Column],
+        relations: Sequence[Optional["LogicalPlan"]],
+        grouping_expressions: Sequence[Sequence[Column]],
         function: "UserDefinedFunction",
     ):
-        assert isinstance(input_grouping_cols, list) and all(
-            isinstance(c, Column) for c in input_grouping_cols
-        )
-        assert isinstance(other_grouping_cols, list) and all(
-            isinstance(c, Column) for c in other_grouping_cols
+        assert (
+            isinstance(grouping_expressions, list)
+            and all(isinstance(grouping_set, list) for grouping_set in grouping_expressions)
+            and all(
+                isinstance(column, Column)
+                for grouping_set in grouping_expressions
+                for column in grouping_set
+            )
         )
 
-        super().__init__(input, self._collect_references(input_grouping_cols + other_grouping_cols))
-        self._input_grouping_cols = input_grouping_cols
-        self._other_grouping_cols = other_grouping_cols
-        self._other = cast(LogicalPlan, other)
-        # The function takes entire DataFrame as inputs, no need to do
+        super().__init__(
+            relations[0],
+            self._collect_references(
+                [column for grouping_set in grouping_expressions for column in grouping_set]
+            ),
+        )
+        self._relations = [cast(LogicalPlan, relation) for relation in relations]
+        self._grouping_expressions = grouping_expressions
+        # The function takes entire DataFrames as inputs, no need to do
         # column binding (no input columns).
         self._function = function._build_common_inline_user_defined_function()
 
     def plan(self, session: "SparkConnectClient") -> proto.Relation:
         assert self._child is not None
         plan = self._create_proto_relation()
-        plan.co_group_map.input.CopyFrom(self._child.plan(session))
-        plan.co_group_map.input_grouping_expressions.extend(
-            [c.to_plan(session) for c in self._input_grouping_cols]
-        )
-        plan.co_group_map.other.CopyFrom(self._other.plan(session))
-        plan.co_group_map.other_grouping_expressions.extend(
-            [c.to_plan(session) for c in self._other_grouping_cols]
+        plan.co_group_map.relations.extend([relation.plan(session) for relation in self._relations])
+        plan.co_group_map.grouping_expressions.extend(
+            [
+                proto.ExpressionSet(
+                    expressions=[column.to_plan(session) for column in grouping_set]
+                )
+                for grouping_set in self._grouping_expressions
+            ]
         )
         plan.co_group_map.func.CopyFrom(self._function.to_plan_udf(session))
         return self._with_relations(plan, session)
